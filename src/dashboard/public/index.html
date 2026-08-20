@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Calendars Dashboard</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;padding-bottom:20px;border-bottom:1px solid #1e293b}
+.header h1{font-size:24px;color:#f8fafc}
+.section{background:#1e293b;border-radius:12px;padding:24px;margin-bottom:20px}
+.section h2{font-size:18px;margin-bottom:16px;color:#f1f5f9}
+.form-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.form-group{flex:1;min-width:200px}
+.form-group label{display:block;font-size:13px;color:#94a3b8;margin-bottom:6px}
+.form-group input,.form-group select{width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:14px}
+.btn{padding:10px 20px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer}
+.btn-primary{background:#3b82f6;color:white}
+.btn-secondary{background:#334155;color:#e2e8f0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.cal-day{background:#0f172a;padding:8px;border-radius:6px;min-height:80px}
+.cal-day .date{font-size:12px;color:#94a3b8;margin-bottom:4px}
+.cal-day .entry{font-size:10px;padding:4px;background:#1e3a5f;border-radius:4px;margin-bottom:2px;color:#60a5fa}
+.empty{text-align:center;padding:60px;color:#64748b}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback}=React;
+const API=window.location.origin.replace(':8100',':8099');
+function App(){
+  const[clients,setClients]=useState([]);
+  const[form,setForm]=useState({name:'',niche:'',platforms:['instagram','twitter']});
+  const[cal,setCal]=useState({cid:'',month:'',entries:[]});
+  const load=useCallback(async()=>{
+    try{const r=await fetch(`${API}/clients`);const d=await r.json();setClients(d.clients||[])}catch(e){}
+  },[]);
+  useEffect(()=>{load();const i=setInterval(load,10000);return()=>clearInterval(i)},[load]);
+  const addClient=async()=>{
+    if(!form.name.trim())return;
+    await fetch(`${API}/clients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});
+    setForm({...form,name:''});setTimeout(load,1000);
+  };
+  const generate=async(cid)=>{
+    await fetch(`${API}/clients/${cid}/generate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,posts_per_week:5})});
+    alert('Calendar generated!');
+  };
+  const viewCal=async(cid)=>{
+    const now=new Date();const month=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const r=await fetch(`${API}/clients/${cid}/calendar/${month}`);const d=await r.json();
+    setCal({cid,month,entries:d.calendar||[]});
+  };
+  return(
+    <div className="container">
+      <div className="header"><h1>📱 Content Calendars</h1></div>
+      <div className="section">
+        <h2>Add Client</h2>
+        <div className="form-row">
+          <div className="form-group"><label>Business Name</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+          <div className="form-group"><label>Niche</label><input value={form.niche} onChange={e=>setForm({...form,niche:e.target.value})}/></div>
+          <div className="form-group" style={{flex:'0 0 auto',display:'flex',alignItems:'flex-end'}}><button className="btn btn-primary" onClick={addClient}>Add</button></div>
+        </div>
+      </div>
+      <div className="section">
+        <h2>Clients ({clients.length})</h2>
+        {clients.length===0?<div className="empty">No clients yet</div>:
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:'12px'}}>
+          {clients.map(c=>(
+            <div key={c.id} style={{background:'#0f172a',padding:'16px',borderRadius:'8px'}}>
+              <strong>{c.name}</strong><br/><span style={{color:'#94a3b8',fontSize:'12px'}}>{c.niche}</span>
+              <div style={{marginTop:'8px',display:'flex',gap:'8px'}}>
+                <button className="btn btn-primary" style={{padding:'6px 12px',fontSize:'12px'}} onClick={()=>generate(c.id)}>Generate</button>
+                <button className="btn btn-secondary" style={{padding:'6px 12px',fontSize:'12px'}} onClick={()=>viewCal(c.id)}>View</button>
+              </div>
+            </div>
+          ))}
+        </div>}
+      </div>
+      {cal.cid && (
+        <div className="section">
+          <h2>Calendar — {cal.month}</h2>
+          <div className="cal-grid">
+            {Array.from({length:31},(_,i)=>{
+              const day=String(i+1).padStart(2,'0');
+              const date=`${cal.month}-${day}`;
+              const entries=cal.entries.filter(e=>e.date===date);
+              return(
+                <div key={day} className="cal-day">
+                  <div className="date">{day}</div>
+                  {entries.map(e=>(<div key={e.id} className="entry">{e.platform}: {e.post_type}</div>))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
