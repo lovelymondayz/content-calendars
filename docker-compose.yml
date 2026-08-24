@@ -5,7 +5,7 @@ services:
     build: .
     container_name: content-calendars-api
     ports:
-      - "8099:8000"
+      - "8103:8000"
     env_file:
       - .env
     volumes:
@@ -22,7 +22,7 @@ services:
     image: nginx:alpine
     container_name: content-calendars-dashboard
     ports:
-      - "8100:80"
+      - "8104:80"
     volumes:
       - ./src/dashboard/public:/usr/share/nginx/html
     restart: unless-stopped
