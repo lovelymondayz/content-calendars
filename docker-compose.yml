@@ -2,7 +2,9 @@ version: "3.8"
 
 services:
   content-calendars-api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: content-calendars-api
     ports:
       - "8103:8000"
